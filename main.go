@@ -1,15 +1,18 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	dynatrace "github.com/dyladan/dynatrace-go-client/api"
 	"github.com/prometheus/alertmanager/template"
 	log "github.com/sirupsen/logrus"
+	"github.com/twmb/murmur3"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"time"
 )
 
@@ -136,25 +139,45 @@ func main() {
 
 }
 
-/*
-curl -i \
-  'http://localhost:9093/api/v2/alerts' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '[
-  {
-    "startsAt": "2021-03-18T23:27:45.720Z",
-    "annotations": {
-      "annotation_01": "annotation 01",
-      "annotation_02": "annotation 02",
-      "annotation_02": "annotation 03"
-    },
-    "labels": {
-      "alertname": "Test Alert",
-      "cluster": "Cluster 01",
-      "service": "Service 03"
-    },
-    "generatorURL": "http://openshift.com"
-  }
-]'
-*/
+func GenerateGroupAndCustomDeviceID(groupID string, deviceID string) (string, string) {
+
+	namespace := ""
+
+	var groupIdBytes []byte
+
+	namespaceLenBigEndian := make([]byte, 8)
+	binary.BigEndian.PutUint32(namespaceLenBigEndian, uint32(len(namespace)))
+
+	groupLenBigEndian := make([]byte, 8)
+	binary.BigEndian.PutUint32(groupLenBigEndian, uint32(len(groupLenBigEndian)))
+
+	groupIdBytes = append(groupIdBytes, namespaceLenBigEndian[:len(namespaceLenBigEndian)-4]...)
+	groupIdBytes = append(groupIdBytes, []byte(groupID)...)
+	groupIdBytes = append(groupIdBytes, groupLenBigEndian[:len(groupLenBigEndian)-4]...)
+
+	dtGroupID := dtMurMur3(groupIdBytes)
+	dtGroupIDUint64, _ := strconv.ParseUint(dtGroupID, 16, 64)
+	dtGroupIDBigEndian := make([]byte, 8)
+
+	binary.BigEndian.PutUint64(dtGroupIDBigEndian, dtGroupIDUint64)
+
+	var customDeviceBytes []byte
+
+	deviceIDLenBigEndian := make([]byte, 8)
+	binary.BigEndian.PutUint32(deviceIDLenBigEndian, uint32(len(deviceID)))
+
+	customDeviceBytes = append(customDeviceBytes, dtGroupIDBigEndian...)
+	customDeviceBytes = append(customDeviceBytes, []byte(deviceID)...)
+	customDeviceBytes = append(customDeviceBytes, deviceIDLenBigEndian[:len(deviceIDLenBigEndian)-4]...)
+
+	dtCustomDeviceID := dtMurMur3(customDeviceBytes)
+
+	return fmt.Sprintf("CUSTOM_DEVICE_GROUP-%s", dtGroupID), fmt.Sprintf("CUSTOM_DEVICE-%s", dtCustomDeviceID)
+}
+
+func dtMurMur3(data []byte) string {
+
+	h1, _ := murmur3.SeedSum128(0, 0, data)
+	return fmt.Sprintf("%X", h1)
+
+}
