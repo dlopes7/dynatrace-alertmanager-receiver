@@ -142,30 +142,27 @@ func main() {
 func GenerateGroupAndCustomDeviceID(groupID string, deviceID string) (string, string) {
 
 	namespace := ""
-
-	var groupIdBytes []byte
-
 	namespaceLenBigEndian := make([]byte, 8)
 	binary.BigEndian.PutUint32(namespaceLenBigEndian, uint32(len(namespace)))
 
 	groupLenBigEndian := make([]byte, 8)
 	binary.BigEndian.PutUint32(groupLenBigEndian, uint32(len(groupLenBigEndian)))
 
+	var groupIdBytes []byte
 	groupIdBytes = append(groupIdBytes, namespaceLenBigEndian[:len(namespaceLenBigEndian)-4]...)
 	groupIdBytes = append(groupIdBytes, []byte(groupID)...)
 	groupIdBytes = append(groupIdBytes, groupLenBigEndian[:len(groupLenBigEndian)-4]...)
 
 	dtGroupID := dtMurMur3(groupIdBytes)
 	dtGroupIDUint64, _ := strconv.ParseUint(dtGroupID, 16, 64)
+
 	dtGroupIDBigEndian := make([]byte, 8)
-
 	binary.BigEndian.PutUint64(dtGroupIDBigEndian, dtGroupIDUint64)
-
-	var customDeviceBytes []byte
 
 	deviceIDLenBigEndian := make([]byte, 8)
 	binary.BigEndian.PutUint32(deviceIDLenBigEndian, uint32(len(deviceID)))
 
+	var customDeviceBytes []byte
 	customDeviceBytes = append(customDeviceBytes, dtGroupIDBigEndian...)
 	customDeviceBytes = append(customDeviceBytes, []byte(deviceID)...)
 	customDeviceBytes = append(customDeviceBytes, deviceIDLenBigEndian[:len(deviceIDLenBigEndian)-4]...)
