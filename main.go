@@ -20,8 +20,7 @@ func init() {
 	}
 	log.SetFormatter(logFormatter)
 
-	logDir := utils.GetTempDir()
-	logFilePath := path.Join(logDir, "dynatrace-receiver.log")
+	logFilePath := path.Join(utils.GetTempDir(), "dynatrace-receiver.log")
 	lumberjackLogger := &lumberjack.Logger{
 		Filename:   logFilePath,
 		MaxSize:    5,
