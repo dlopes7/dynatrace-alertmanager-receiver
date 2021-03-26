@@ -2,9 +2,11 @@ package main
 
 import (
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/server"
+	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
-	"os"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"path"
 )
 
 func init() {
@@ -18,15 +20,15 @@ func init() {
 	}
 	log.SetFormatter(logFormatter)
 
-	//logDir := utils.GetTempDir()
-	//logFilePath := path.Join(logDir, "dynatrace-receiver.log")
-	//lumberjackLogger := &lumberjack.Logger{
-	//	Filename:   logFilePath,
-	//	MaxSize:    5,
-	//	MaxBackups: 5,
-	//}
-	// log.SetOutput(lumberjackLogger)
-	log.SetOutput(os.Stdout)
+	logDir := utils.GetTempDir()
+	logFilePath := path.Join(logDir, "dynatrace-receiver.log")
+	lumberjackLogger := &lumberjack.Logger{
+		Filename:   logFilePath,
+		MaxSize:    5,
+		MaxBackups: 5,
+	}
+	log.SetOutput(lumberjackLogger)
+	// log.SetOutput(os.Stdout)
 
 }
 
