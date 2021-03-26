@@ -109,9 +109,9 @@ warning_close = {
 def main():
     print(requests.post("http://localhost:9393/webhook", json=warning))
     time.sleep(10)
-    print(requests.post("http://localhost:9393/webhook", json=warning_close))
-    time.sleep(10)
-    print(requests.post("http://localhost:9393/webhook", json=warning_close))
+    # print(requests.post("http://localhost:9393/webhook", json=warning_close))
+    # time.sleep(10)
+    # print(requests.post("http://localhost:9393/webhook", json=warning_close))
 
 
 if __name__ == "__main__":

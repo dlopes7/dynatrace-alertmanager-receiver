@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"fmt"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/cache"
 	dtapi "github.com/dyladan/dynatrace-go-client/api"
 	log "github.com/sirupsen/logrus"
@@ -31,6 +32,7 @@ func NewScheduler(deviceCache *cache.CustomDeviceCacheService, problemCache *cac
 
 // UpdateProblemIDs checks for alerts without a ProblemID in the cache, and update them with their ProblemIDs
 func (s *Scheduler) UpdateProblemIDs() {
+	log.Info("Scheduler - Starting UpdateProblemIDs")
 
 	fields := []string{"evidenceDetails"}
 	problemSelector := "status(\"open\")"
@@ -72,4 +74,32 @@ func (s *Scheduler) UpdateProblemIDs() {
 	problemCache.Problems = updatedProblems
 	s.problemCache.Update(*problemCache)
 
+}
+
+func (s *Scheduler) ResendEvents() {
+
+	log.Info("Scheduler - Starting ResendEvents")
+	problemCache := s.problemCache.GetCache()
+	for _, problem := range problemCache.Problems {
+		r, _, err := s.dtClient.Events.Create(problem.Event)
+		if err != nil {
+			log.WithFields(log.Fields{"error": err.Error()}).Error("Scheduler - Could not resent the event")
+		}
+		log.WithFields(log.Fields{"response": fmt.Sprintf("%+v", r)}).Info("Scheduler - Dynatrace response after sending the event")
+	}
+
+}
+
+func (s *Scheduler) DeleteOldEvents() {
+
+	now := time.Now()
+	log.Info("Scheduler - Starting DeleteOldEvents")
+	problemCache := s.problemCache.GetCache()
+	for hash, problem := range problemCache.Problems {
+		timeAlive := now.Sub(problem.CreatedAt)
+		if timeAlive > 5*24*time.Hour {
+			log.WithFields(log.Fields{"CreatedAt": problem.CreatedAt, "timeAlive": timeAlive}).Info("Scheduler - Deleting event because it is too old")
+			s.problemCache.Delete(hash)
+		}
+	}
 }

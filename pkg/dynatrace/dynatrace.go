@@ -39,9 +39,6 @@ func NewDynatraceController(deviceCache *cache.CustomDeviceCacheService, problem
 
 func (d *Controller) SendAlerts(data alertmanager.Data) error {
 
-	// TODO - Implement Resend Events Job
-	// TODO - Implement Delete Old Events Job
-
 	// Use the standard Custom Device Name for now, until we are able to build a new one from the labels of the alert
 	// If we are not able to craft a new custom device name, this default name will be used
 	customDeviceName := DefaultCustomDeviceName
@@ -150,8 +147,9 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 		// If this event was a problem opening event, add it to the cache
 		if eventType == dtapi.EventTypeErrorEvent {
 			p := cache.Problem{
-				Event: event,
-				Alert: data,
+				Event:     event,
+				Alert:     data,
+				CreatedAt: time.Now(),
 			}
 			d.problemCache.AddProblem(groupKeyHash, p)
 		}
@@ -169,7 +167,7 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 }
 
 func (d *Controller) CloseProblem(groupKeyHash string) error {
-	comment := fmt.Sprintf("Dynatrace receiver automatically closed the problem after receiving an resolved event with hash %s", groupKeyHash)
+	comment := fmt.Sprintf("Dynatrace receiver automatically closed the problem after receiving a resolved event with hash %s", groupKeyHash)
 	problemCache := d.problemCache.GetCache()
 
 	// Check if the hash exists in the problems cache. This should always be true unless we receive an resolved event twice in a row

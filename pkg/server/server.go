@@ -72,6 +72,8 @@ func Run() {
 	s := New()
 	c := cron.New()
 	c.AddFunc("@every 2m", s.scheduler.UpdateProblemIDs)
+	c.AddFunc("@every 30m", s.scheduler.ResendEvents)
+	c.AddFunc("@every 1h", s.scheduler.DeleteOldEvents)
 	c.Start()
 
 	http.HandleFunc("/webhook", s.webhook)

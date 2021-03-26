@@ -78,6 +78,7 @@ type ProblemCache struct {
 type Problem struct {
 	Event     dynatrace.EventCreation `json:"event"`
 	Alert     alertmanager.Data       `json:"alert"`
+	CreatedAt time.Time               `json:"createdAt"`
 	ProblemID string                  `json:"problemID"`
 }
 
@@ -139,7 +140,7 @@ func (p *ProblemCacheService) persist() {
 }
 
 func (p *ProblemCacheService) Delete(hash string) {
-	log.WithFields(log.Fields{"hash": hash}).Info("ProblemCacheService - deleting cache the entry")
+	log.WithFields(log.Fields{"hash": hash}).Info("ProblemCacheService - deleting the cache entry")
 	p.lock.Lock()
 	delete(p.cache.Problems, hash)
 	p.cache.LastUpdated = time.Now()
