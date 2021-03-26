@@ -6,7 +6,6 @@ import (
 	dtapi "github.com/dyladan/dynatrace-go-client/api"
 	log "github.com/sirupsen/logrus"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -34,9 +33,6 @@ func NewScheduler(deviceCache *cache.CustomDeviceCacheService, problemCache *cac
 func (s *Scheduler) UpdateProblemIDs() {
 	log.Info("Scheduler - Starting UpdateProblemIDs")
 
-	fields := []string{"evidenceDetails"}
-	problemSelector := "status(\"open\")"
-
 	problemCache := s.problemCache.GetCache()
 
 	// Copy the map so that we can update this during the iteration below
@@ -45,7 +41,7 @@ func (s *Scheduler) UpdateProblemIDs() {
 		updatedProblems[hash] = problem
 	}
 
-	dtProblems, _, err := s.dtClient.Problem.List(fields, problemSelector, "", "")
+	dtProblems, _, err := s.dtClient.Problem.ListV1("", 0, 0, "OPEN", "", "", nil, true)
 	if err != nil {
 		log.WithFields(log.Fields{"error": err.Error()}).Error("Scheduler - Error obtaining Dynatrace Problems")
 	} else {
@@ -54,13 +50,14 @@ func (s *Scheduler) UpdateProblemIDs() {
 
 			if problem.ProblemID == "" {
 				entity := problem.Event.AttachRules.EntityIds[0]
-				log.WithFields(log.Fields{"hash": hash, "entity": entity, "alert": problem.Event.Title}).Info("Scheduler - Found an alert without a ProblemID")
+				correlationID := problem.EventStoreResult.StoredCorrelationIds[0]
+				log.WithFields(log.Fields{"hash": hash, "entity": entity, "alert": problem.Event.Title, "correlationID": correlationID}).Info("Scheduler - Found an alert without a ProblemID")
 
 				for _, dtProblem := range dtProblems {
-					for _, evidenceDetails := range dtProblem.EvidenceDetails.Details {
-						if strings.Contains(evidenceDetails.DisplayName, hash) {
-							log.WithFields(log.Fields{"hash": hash, "entity": entity, "problem": dtProblem.ProblemID}).Info("Scheduler - Found a ProblemID for the event")
-							problem.ProblemID = dtProblem.ProblemID
+					for _, event := range dtProblem.RankedEvents {
+						if event.CorrelationID == correlationID {
+							log.WithFields(log.Fields{"hash": hash, "entity": entity, "problem": dtProblem.ID, "correlationID": correlationID}).Info("Scheduler - Found a ProblemID for the event")
+							problem.ProblemID = dtProblem.ID
 							updatedProblems[hash] = problem
 							foundProblem = true
 						}

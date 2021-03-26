@@ -76,10 +76,11 @@ type ProblemCache struct {
 }
 
 type Problem struct {
-	Event     dynatrace.EventCreation `json:"event"`
-	Alert     alertmanager.Data       `json:"alert"`
-	CreatedAt time.Time               `json:"createdAt"`
-	ProblemID string                  `json:"problemID"`
+	Event            dynatrace.EventCreation    `json:"event"`
+	Alert            alertmanager.Data          `json:"alert"`
+	CreatedAt        time.Time                  `json:"createdAt"`
+	EventStoreResult dynatrace.EventStoreResult `json:"eventStoreResult"`
+	ProblemID        string                     `json:"problemID"`
 }
 
 func NewProblemCacheService() ProblemCacheService {

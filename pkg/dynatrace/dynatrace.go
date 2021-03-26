@@ -90,7 +90,6 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 				// If this opens a problem, set the correct event type
 				// Also add the groupKeyHash to the alert title to do problem correlation
 				eventType = dtapi.EventTypeErrorEvent
-				title = fmt.Sprintf("%s (%s)", title, groupKeyHash)
 			}
 			log.WithFields(log.Fields{"severity": severity, "eventType": eventType}).Info("Controller - Setting eventType based on severity of the alert")
 		}
@@ -157,9 +156,10 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 		// If this event was a problem opening event, add it to the cache
 		if eventType == dtapi.EventTypeErrorEvent {
 			p := cache.Problem{
-				Event:     event,
-				Alert:     data,
-				CreatedAt: time.Now(),
+				Event:            event,
+				Alert:            data,
+				EventStoreResult: *r,
+				CreatedAt:        time.Now(),
 			}
 			d.problemCache.AddProblem(groupKeyHash, p)
 		}
