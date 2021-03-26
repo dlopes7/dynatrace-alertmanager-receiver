@@ -28,6 +28,8 @@ func New() Server {
 	problemCache := cache.NewProblemCacheService()
 	scheduler := jobs.NewScheduler(&customDeviceCache, &problemCache)
 
+	log.WithFields(log.Fields{"DT_API_URL": os.Getenv("DT_API_URL")}).Info("Will use API URL")
+
 	return Server{
 		dt:        dynatrace.NewDynatraceController(&customDeviceCache, &problemCache, &scheduler),
 		scheduler: scheduler,

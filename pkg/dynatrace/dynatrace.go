@@ -9,6 +9,7 @@ import (
 	dtapi "github.com/dyladan/dynatrace-go-client/api"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -20,6 +21,7 @@ type Controller struct {
 	problemCache      *cache.ProblemCacheService
 	scheduler         *jobs.Scheduler
 	dtClient          dtapi.Client
+	severities        []string
 }
 
 func NewDynatraceController(deviceCache *cache.CustomDeviceCacheService, problemCache *cache.ProblemCacheService, scheduler *jobs.Scheduler) Controller {
@@ -29,11 +31,15 @@ func NewDynatraceController(deviceCache *cache.CustomDeviceCacheService, problem
 		Retries:   5,
 		RetryTime: 2 * time.Second,
 	})
+	severities := strings.Split(os.Getenv("WEBHOOK_PROBLEM_SEVERITIES"), ",")
+	log.WithFields(log.Fields{"severities": severities}).Info("Will open problems for the listed severities")
+
 	return Controller{
 		dtClient:          dt,
 		customDeviceCache: deviceCache,
 		problemCache:      problemCache,
 		scheduler:         scheduler,
+		severities:        severities,
 	}
 }
 
@@ -79,7 +85,10 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 		// Change the eventType of the Dynatrace Event based on the severity
 		if severity, ok := alert.Labels["severity"]; ok {
 			title = fmt.Sprintf("%s (%s)", title, severity)
-			if severity == "warning" || severity == "error" || severity == "critical" {
+
+			if utils.StringInSlice(severity, d.severities) {
+				// If this opens a problem, set the correct event type
+				// Also add the groupKeyHash to the alert title to do problem correlation
 				eventType = dtapi.EventTypeErrorEvent
 				title = fmt.Sprintf("%s (%s)", title, groupKeyHash)
 			}
