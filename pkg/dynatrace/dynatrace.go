@@ -24,8 +24,8 @@ type Controller struct {
 
 func NewDynatraceController(deviceCache *cache.CustomDeviceCacheService, problemCache *cache.ProblemCacheService, scheduler *jobs.Scheduler) Controller {
 	dt := dtapi.New(dtapi.Config{
-		APIKey:    os.Getenv("DT_API_KEY"),
-		BaseURL:   os.Getenv("DT_BASE_URL"),
+		APIKey:    os.Getenv("DT_API_TOKEN"),
+		BaseURL:   os.Getenv("DT_API_URL"),
 		Retries:   5,
 		RetryTime: 2 * time.Second,
 	})

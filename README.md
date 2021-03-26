@@ -14,8 +14,8 @@ This is an [Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanage
 
 ### Environment Variables
 
-* `DT_API_KEY` - The dynatrace API Key, mandatory
-* `DT_BASE_URL` - The dynatrace API URL, mandatory
+* `DT_API_TOKEN` - The dynatrace API Key, mandatory
+* `DT_API_URL` - The dynatrace API URL, mandatory
 * `WEBHOOK_LOG_FOLDER` - The temp folder for logs and caches, if empty `os.TempDir()` is used.
 * `WEBHOOK_PORT` - The webhook port, if empty `9393` is used
 * `WEBHOOK_LOG_LEVEL` - The log level, if empty `INFO` is used
