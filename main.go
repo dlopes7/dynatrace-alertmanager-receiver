@@ -6,12 +6,22 @@ import (
 	log "github.com/sirupsen/logrus"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"os"
 	"path"
 )
 
 func init() {
 
 	log.SetLevel(log.InfoLevel)
+	customLevel := os.Getenv("WEBHOOK_LOG_LEVEL")
+	if customLevel != "" {
+		level, err := log.ParseLevel(customLevel)
+		if err != nil {
+			log.Fatalf("Could not use level %s: %s", customLevel, err.Error())
+		}
+		log.SetLevel(level)
+	}
+
 	logFormatter := &prefixed.TextFormatter{
 		DisableColors:   true,
 		FullTimestamp:   true,

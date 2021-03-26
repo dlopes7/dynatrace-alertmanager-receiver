@@ -18,3 +18,5 @@ This is an [Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanage
 * `DT_BASE_URL` - The dynatrace API URL, mandatory
 * `WEBHOOK_LOG_FOLDER` - The temp folder for logs and caches, if empty `os.TempDir()` is used.
 * `WEBHOOK_PORT` - The webhook port, if empty `9393` is used
+* `WEBHOOK_LOG_LEVEL` - The log level, if empty `INFO` is used
+
