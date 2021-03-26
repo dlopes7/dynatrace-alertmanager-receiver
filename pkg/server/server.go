@@ -7,38 +7,42 @@ import (
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/cache"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/dynatrace"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/jobs"
-	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/utils"
 	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 )
 
+type Response struct {
+	Error   bool   `json:"error"`
+	Message string `json:"message"`
+}
+
 type Server struct {
-	dt         dynatrace.DynatraceController
-	problemJob jobs.ProblemJob
+	dt        dynatrace.Controller
+	scheduler jobs.Scheduler
 }
 
 func New() Server {
 	customDeviceCache := cache.NewCustomDeviceCacheService()
 	problemCache := cache.NewProblemCacheService()
-	problemJob := jobs.NewProblemJob(&customDeviceCache, &problemCache)
+	scheduler := jobs.NewScheduler(&customDeviceCache, &problemCache)
 
 	return Server{
-		dt:         dynatrace.NewDynatraceController(&customDeviceCache, &problemCache, &problemJob),
-		problemJob: problemJob,
+		dt:        dynatrace.NewDynatraceController(&customDeviceCache, &problemCache, &scheduler),
+		scheduler: scheduler,
 	}
 }
 
 func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	resp := utils.Response{}
+	resp := Response{}
 
 	// Decode the incoming request body to a Data object
 	data := alertmanager.Data{}
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		resp = utils.Response{
+		resp = Response{
 			Error:   true,
 			Message: fmt.Sprintf("Could not parse the from the request body: %s", err.Error()),
 		}
@@ -53,7 +57,7 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 	err := s.dt.SendAlerts(data)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		resp = utils.Response{
+		resp = Response{
 			Error:   true,
 			Message: fmt.Sprintf("Could not send the alert to Dynatrace: %s", err.Error()),
 		}
@@ -67,7 +71,7 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 func Run() {
 	s := New()
 	c := cron.New()
-	c.AddFunc("@every 2m", s.problemJob.UpdateProblemIDs)
+	c.AddFunc("@every 2m", s.scheduler.UpdateProblemIDs)
 	c.Start()
 
 	http.HandleFunc("/webhook", s.webhook)

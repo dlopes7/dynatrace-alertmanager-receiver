@@ -9,20 +9,20 @@ import (
 	"time"
 )
 
-type ProblemJob struct {
+type Scheduler struct {
 	customDeviceCache *cache.CustomDeviceCacheService
 	problemCache      *cache.ProblemCacheService
 	dtClient          dtapi.Client
 }
 
-func NewProblemJob(deviceCache *cache.CustomDeviceCacheService, problemCache *cache.ProblemCacheService) ProblemJob {
+func NewScheduler(deviceCache *cache.CustomDeviceCacheService, problemCache *cache.ProblemCacheService) Scheduler {
 	dt := dtapi.New(dtapi.Config{
 		APIKey:    os.Getenv("DT_API_KEY"),
 		BaseURL:   os.Getenv("DT_BASE_URL"),
 		Retries:   5,
 		RetryTime: 2 * time.Second,
 	})
-	return ProblemJob{
+	return Scheduler{
 		dtClient:          dt,
 		customDeviceCache: deviceCache,
 		problemCache:      problemCache,
@@ -30,12 +30,12 @@ func NewProblemJob(deviceCache *cache.CustomDeviceCacheService, problemCache *ca
 }
 
 // UpdateProblemIDs checks for alerts without a ProblemID in the cache, and update them with their ProblemIDs
-func (p *ProblemJob) UpdateProblemIDs() {
+func (s *Scheduler) UpdateProblemIDs() {
 
 	fields := []string{"evidenceDetails"}
 	problemSelector := "status(\"open\")"
 
-	problemCache := p.problemCache.GetCache()
+	problemCache := s.problemCache.GetCache()
 
 	// Copy the map so that we can update this during the iteration below
 	updatedProblems := map[string]cache.Problem{}
@@ -46,17 +46,17 @@ func (p *ProblemJob) UpdateProblemIDs() {
 	for hash, problem := range problemCache.Problems {
 		if problem.ProblemID == "" {
 			entity := problem.Event.AttachRules.EntityIds[0]
-			log.WithFields(log.Fields{"hash": hash, "entity": entity, "alert": problem.Event.Title}).Info("ProblemJob - Found an alert without a ProblemID")
+			log.WithFields(log.Fields{"hash": hash, "entity": entity, "alert": problem.Event.Title}).Info("Scheduler - Found an alert without a ProblemID")
 
-			dtProblems, _, err := p.dtClient.Problem.List(fields, problemSelector, "", "")
+			dtProblems, _, err := s.dtClient.Problem.List(fields, problemSelector, "", "")
 			if err != nil {
-				log.WithFields(log.Fields{"error": err.Error()}).Info("ProblemJob - Error obtaining Dynatrace Problems")
+				log.WithFields(log.Fields{"error": err.Error()}).Info("Scheduler - Error obtaining Dynatrace Problems")
 			} else {
 				foundProblem := false
 				for _, dtProblem := range dtProblems {
 					for _, evidenceDetails := range dtProblem.EvidenceDetails.Details {
 						if strings.Contains(evidenceDetails.DisplayName, hash) {
-							log.WithFields(log.Fields{"hash": hash, "entity": entity, "problem": dtProblem.ProblemID}).Info("ProblemJob - Found a ProblemID for the event")
+							log.WithFields(log.Fields{"hash": hash, "entity": entity, "problem": dtProblem.ProblemID}).Info("Scheduler - Found a ProblemID for the event")
 							problem.ProblemID = dtProblem.ProblemID
 							updatedProblems[hash] = problem
 							foundProblem = true
@@ -64,12 +64,12 @@ func (p *ProblemJob) UpdateProblemIDs() {
 					}
 				}
 				if foundProblem == false {
-					log.WithFields(log.Fields{"hash": hash}).Warning("ProblemJob - Could not find a Problem with an event matching the hash")
+					log.WithFields(log.Fields{"hash": hash}).Warning("Scheduler - Could not find a Problem with an event matching the hash")
 				}
 			}
 		}
 	}
 	problemCache.Problems = updatedProblems
-	p.problemCache.Update(*problemCache)
+	s.problemCache.Update(*problemCache)
 
 }

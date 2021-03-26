@@ -8,6 +8,7 @@ import (
 	"github.com/twmb/murmur3"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func GenerateGroupAndCustomDeviceID(groupID string, deviceID string) (string, string) {
@@ -50,7 +51,7 @@ func GenerateGroupAndCustomDeviceID(groupID string, deviceID string) (string, st
 func dtMurMur3(data []byte) string {
 
 	h1, _ := murmur3.SeedSum128(0, 0, data)
-	return fmt.Sprintf("%X", h1)
+	return strings.TrimLeft(fmt.Sprintf("%X", h1), "0")
 
 }
 
