@@ -45,16 +45,17 @@ func (s *Scheduler) UpdateProblemIDs() {
 		updatedProblems[hash] = problem
 	}
 
-	for hash, problem := range problemCache.Problems {
-		if problem.ProblemID == "" {
-			entity := problem.Event.AttachRules.EntityIds[0]
-			log.WithFields(log.Fields{"hash": hash, "entity": entity, "alert": problem.Event.Title}).Info("Scheduler - Found an alert without a ProblemID")
+	dtProblems, _, err := s.dtClient.Problem.List(fields, problemSelector, "", "")
+	if err != nil {
+		log.WithFields(log.Fields{"error": err.Error()}).Error("Scheduler - Error obtaining Dynatrace Problems")
+	} else {
+		for hash, problem := range problemCache.Problems {
+			foundProblem := false
 
-			dtProblems, _, err := s.dtClient.Problem.List(fields, problemSelector, "", "")
-			if err != nil {
-				log.WithFields(log.Fields{"error": err.Error()}).Info("Scheduler - Error obtaining Dynatrace Problems")
-			} else {
-				foundProblem := false
+			if problem.ProblemID == "" {
+				entity := problem.Event.AttachRules.EntityIds[0]
+				log.WithFields(log.Fields{"hash": hash, "entity": entity, "alert": problem.Event.Title}).Info("Scheduler - Found an alert without a ProblemID")
+
 				for _, dtProblem := range dtProblems {
 					for _, evidenceDetails := range dtProblem.EvidenceDetails.Details {
 						if strings.Contains(evidenceDetails.DisplayName, hash) {
@@ -71,6 +72,7 @@ func (s *Scheduler) UpdateProblemIDs() {
 			}
 		}
 	}
+
 	problemCache.Problems = updatedProblems
 	s.problemCache.Update(*problemCache)
 

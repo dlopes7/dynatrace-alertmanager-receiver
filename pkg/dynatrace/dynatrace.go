@@ -144,6 +144,7 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 			Description:      description,
 			Title:            title,
 			CustomProperties: eventProperties,
+			AllowDavisMerge:  false,
 		}
 
 		// Send to Dynatrace
