@@ -3,15 +3,17 @@ package main
 import (
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/server"
 	log "github.com/sirupsen/logrus"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 	"os"
 )
 
 func init() {
 
 	log.SetLevel(log.DebugLevel)
-	logFormatter := &log.TextFormatter{
+	logFormatter := &prefixed.TextFormatter{
 		DisableColors:   true,
 		FullTimestamp:   true,
+		ForceFormatting: true,
 		TimestampFormat: "2006-01-02 15:04:05.000",
 	}
 	log.SetFormatter(logFormatter)

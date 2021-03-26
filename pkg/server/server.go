@@ -4,19 +4,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/alertmanager"
-	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/communication"
+	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/cache"
+	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/dynatrace"
+	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/jobs"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/utils"
+	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 )
 
 type Server struct {
-	dt communication.DynatraceController
+	dt         dynatrace.DynatraceController
+	problemJob jobs.ProblemJob
 }
 
 func New() Server {
-	return Server{dt: communication.NewDynatraceController()}
+	customDeviceCache := cache.NewCustomDeviceCacheService()
+	problemCache := cache.NewProblemCacheService()
+	problemJob := jobs.NewProblemJob(&customDeviceCache, &problemCache)
+
+	return Server{
+		dt:         dynatrace.NewDynatraceController(&customDeviceCache, &problemCache, &problemJob),
+		problemJob: problemJob,
+	}
 }
 
 func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
@@ -31,12 +42,12 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 			Error:   true,
 			Message: fmt.Sprintf("Could not parse the from the request body: %s", err.Error()),
 		}
-		log.WithFields(log.Fields{"response": resp, "error": err.Error()}).Error("Could not parse the data to a valid Data object")
+		log.WithFields(log.Fields{"response": resp, "error": err.Error()}).Error("Server - Could not parse the data to a valid Data object")
 		_ = json.NewEncoder(w).Encode(resp)
 		return
 	}
 
-	log.WithFields(log.Fields{"data": fmt.Sprintf("%+v", data)}).Info("Received data")
+	log.WithFields(log.Fields{"data": fmt.Sprintf("%+v", data)}).Info("Server - Received data")
 
 	// Attempt to send the alerts to Dynatrace
 	err := s.dt.SendAlerts(data)
@@ -46,7 +57,7 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 			Error:   true,
 			Message: fmt.Sprintf("Could not send the alert to Dynatrace: %s", err.Error()),
 		}
-		log.WithFields(log.Fields{"response": resp, "error": err.Error()}).Error("Could not send the alert to Dynatrace")
+		log.WithFields(log.Fields{"response": resp, "error": err.Error()}).Error("Server - Could not send the alert to Dynatrace")
 		_ = json.NewEncoder(w).Encode(resp)
 		return
 	}
@@ -55,6 +66,10 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 
 func Run() {
 	s := New()
+	c := cron.New()
+	c.AddFunc("@every 2m", s.problemJob.UpdateProblemIDs)
+	c.Start()
+
 	http.HandleFunc("/webhook", s.webhook)
 
 	listenAddress := ":9393"
@@ -62,6 +77,6 @@ func Run() {
 		listenAddress = ":" + os.Getenv("WEBHOOK_PORT")
 	}
 
-	log.WithFields(log.Fields{"listenAddress": listenAddress}).Info("Starting webhook")
+	log.WithFields(log.Fields{"listenAddress": listenAddress}).Info("Server - Starting webhook")
 	log.Fatal(http.ListenAndServe(listenAddress, nil))
 }

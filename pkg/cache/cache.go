@@ -124,7 +124,9 @@ func (p *ProblemCacheService) AddProblem(hash string, problem Problem) {
 
 func (p *ProblemCacheService) Update(pc ProblemCache) {
 	p.lock.Lock()
-	p.cache = pc
+	for hash, problem := range pc.Problems {
+		p.cache.Problems[hash] = problem
+	}
 	p.cache.LastUpdated = time.Now()
 	p.persist()
 	p.lock.Unlock()
@@ -134,4 +136,13 @@ func (p *ProblemCacheService) persist() {
 	file, _ := json.MarshalIndent(p.cache, "", " ")
 	_ = ioutil.WriteFile(p.location, file, 0644)
 
+}
+
+func (p *ProblemCacheService) Delete(hash string) {
+	log.WithFields(log.Fields{"hash": hash}).Info("ProblemCacheService - deleting cache the entry")
+	p.lock.Lock()
+	delete(p.cache.Problems, hash)
+	p.cache.LastUpdated = time.Now()
+	p.persist()
+	p.lock.Unlock()
 }
