@@ -49,10 +49,13 @@ func (s *Scheduler) UpdateProblemIDs() {
 			foundProblem := false
 
 			if problem.ProblemID == "" {
+				// Only look for the ProblemID if we don't have it already
+
 				entity := problem.Event.AttachRules.EntityIds[0]
 				correlationID := problem.EventStoreResult.StoredCorrelationIds[0]
 				log.WithFields(log.Fields{"hash": hash, "entity": entity, "alert": problem.Event.Title, "correlationID": correlationID}).Info("Scheduler - Found an alert without a ProblemID")
 
+				// Problems V1 API gives us the correlationID for each event, we just compare the values for each event of opened problem to find ours
 				for _, dtProblem := range dtProblems {
 					for _, event := range dtProblem.RankedEvents {
 						if event.CorrelationID == correlationID {

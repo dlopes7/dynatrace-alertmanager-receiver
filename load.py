@@ -1,7 +1,7 @@
 import requests
 import time
 
-service = "allowDavisMerge_false_test_04"
+service = "-01"
 
 warning = {
     "receiver": "dynatrace-receiver",
@@ -89,8 +89,8 @@ warning_close = {
 
 def main():
     print(requests.post("http://localhost:9394/webhook", json=warning))
-    # time.sleep(10)
-    # print(requests.post("http://localhost:9393/webhook", json=warning_close))
+    time.sleep(10)
+    print(requests.post("http://localhost:9394/webhook", json=warning_close))
     # time.sleep(10)
     # print(requests.post("http://localhost:9393/webhook", json=warning_close))
 

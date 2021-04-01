@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"io"
 	"os"
 	"path"
 )
@@ -36,8 +37,9 @@ func init() {
 		MaxSize:    5,
 		MaxBackups: 5,
 	}
-	log.SetOutput(lumberjackLogger)
-	// log.SetOutput(os.Stdout)
+
+	w := io.MultiWriter(os.Stdout, lumberjackLogger)
+	log.SetOutput(w)
 
 }
 
@@ -65,4 +67,16 @@ curl -i 'http://localhost:9093/api/v2/alerts' \
   }
 ]'
 
+*/
+
+/*
+docker run --rm \
+-e "DT_API_TOKEN=DRLsfmuKScmmIQSxtuzxJ" \
+-e "DT_API_URL=https://eaa50379.sprint.dynatracelabs.com/" \
+-e "WEBHOOK_PORT=9394" \
+-e "WEBHOOK_LOG_LEVEL=DEBUG" \
+-e "WEBHOOK_PROBLEM_SEVERITIES=critical,warning,error" \
+-e "WEBHOOK_LOG_FOLDER=/tmp/webhook" \
+--name dynatrace-receiver \
+dlopes7/dynatrace-prometheus-receiver
 */
