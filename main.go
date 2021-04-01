@@ -47,12 +47,12 @@ func main() {
 	server.Run()
 }
 
-/*
+/* Send open alert to alertmanager
 curl -i 'http://localhost:9093/api/v2/alerts' \
 -H 'accept: application/json' \
 -H 'Content-Type: application/json' \
 -d '[  {
-    "startsAt": "2021-03-19T01:35:45.720Z",
+    "startsAt": "2021-04-01T12:49:45.720Z",
     "annotations": {
       "annotation_01": "annotation 01",
       "annotation_02": "annotation 02",
@@ -66,17 +66,4 @@ curl -i 'http://localhost:9093/api/v2/alerts' \
     "generatorURL": "http://openshift.com"
   }
 ]'
-
-*/
-
-/*
-docker run --rm \
--e "DT_API_TOKEN=DRLsfmuKScmmIQSxtuzxJ" \
--e "DT_API_URL=https://eaa50379.sprint.dynatracelabs.com/" \
--e "WEBHOOK_PORT=9394" \
--e "WEBHOOK_LOG_LEVEL=DEBUG" \
--e "WEBHOOK_PROBLEM_SEVERITIES=critical,warning,error" \
--e "WEBHOOK_LOG_FOLDER=/tmp/webhook" \
---name dynatrace-receiver \
-dlopes7/dynatrace-prometheus-receiver
 */

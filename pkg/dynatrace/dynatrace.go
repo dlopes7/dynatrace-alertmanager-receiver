@@ -58,6 +58,7 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 	// This is our connection from this event to an eventual Problem in Dynatrace
 	groupKeyHash := utils.Hash(data.GroupKey)
 	log.WithFields(log.Fields{"groupKeyHash": groupKeyHash, "groupKey": data.GroupKey}).Info("Controller - Calculated the hash for the groupKey")
+	eventProperties["GroupKeyHash"] = groupKeyHash
 
 	// We need to gather properties, and generated a Custom Device ID based on the list of alerts
 	for i, alert := range data.Alerts {
@@ -177,7 +178,7 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 }
 
 func (d *Controller) CloseProblem(groupKeyHash string) error {
-	comment := fmt.Sprintf("Dynatrace receiver automatically closed the problem after receiving a resolved event with hash %s", groupKeyHash)
+	comment := fmt.Sprintf("Dynatrace alertmanager receiver automatically closed the problem after receiving a resolved event with hash %s", groupKeyHash)
 	problemCache := d.problemCache.GetCache()
 
 	// Check if the hash exists in the problems cache. This should always be true unless we receive an resolved event twice in a row

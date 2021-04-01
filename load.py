@@ -1,7 +1,7 @@
 import requests
 import time
 
-service = "-01"
+service = "-demo-01"
 
 warning = {
     "receiver": "dynatrace-receiver",
@@ -87,10 +87,11 @@ warning_close = {
     "externalURL": "http://8598cebf58a1:9093",
 }
 
+
 def main():
-    print(requests.post("http://localhost:9394/webhook", json=warning))
+    print(requests.post("http://localhost:9393/webhook", json=warning))
     time.sleep(10)
-    print(requests.post("http://localhost:9394/webhook", json=warning_close))
+    print(requests.post("http://localhost:9393/webhook", json=warning_close))
     # time.sleep(10)
     # print(requests.post("http://localhost:9393/webhook", json=warning_close))
 
