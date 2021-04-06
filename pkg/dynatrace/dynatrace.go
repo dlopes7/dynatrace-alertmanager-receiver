@@ -108,7 +108,7 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 
 	// Here we need to make sure we have a Custom Device before proceeding
 	_, customDeviceID := utils.GenerateGroupAndCustomDeviceID(DefaultCustomDeviceGroupName, customDeviceName)
-	log.WithFields(log.Fields{"customDeviceID": customDeviceID, "customDeviceName": customDeviceName}).Info("Controller - Generated a Custom Device ID locally")
+	log.WithFields(log.Fields{"customDeviceID": customDeviceID, "customDeviceName": customDeviceName, "groupKeyHash": groupKeyHash}).Info("Controller - Generated a Custom Device ID locally")
 
 	// This means we need to send an event to Dynatrace
 	if data.Status == "firing" {
@@ -128,9 +128,9 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 			}
 			customDeviceCache.CustomDevices = append(customDeviceCache.CustomDevices, r.EntityID)
 			d.customDeviceCache.Update(*customDeviceCache)
-			log.WithFields(log.Fields{"CustomDeviceID": r.EntityID}).Info("Controller - Created a new Custom Device using the API")
+			log.WithFields(log.Fields{"CustomDeviceID": r.EntityID, "groupKeyHash": groupKeyHash}).Info("Controller - Created a new Custom Device using the API")
 		} else {
-			log.WithFields(log.Fields{"CustomDeviceID": customDeviceID}).Info("Controller - Found the CustomDeviceID in the local cache")
+			log.WithFields(log.Fields{"CustomDeviceID": customDeviceID, "groupKeyHash": groupKeyHash}).Info("Controller - Found the CustomDeviceID in the local cache")
 		}
 
 		// Create the event object
@@ -152,10 +152,12 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 		if err != nil {
 			return err
 		}
-		log.WithFields(log.Fields{"response": fmt.Sprintf("%+v", r)}).Info("Controller - Dynatrace response after sending the event")
+		log.WithFields(log.Fields{"response": fmt.Sprintf("%+v", r), "groupKeyHash": groupKeyHash}).Info("Controller - Dynatrace response after sending the event")
 
 		// If this event was a problem opening event, add it to the cache
 		if eventType == dtapi.EventTypeErrorEvent {
+			log.WithFields(log.Fields{"groupKeyHash": groupKeyHash}).Info("Adding the problem to the local cache")
+
 			p := cache.Problem{
 				Event:            event,
 				Alert:            data,
@@ -179,6 +181,8 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 
 func (d *Controller) CloseProblem(groupKeyHash string) error {
 	comment := fmt.Sprintf("Dynatrace alertmanager receiver automatically closed the problem after receiving a resolved event with hash %s", groupKeyHash)
+
+	d.problemCache.Lock()
 	problemCache := d.problemCache.GetCache()
 
 	// Check if the hash exists in the problems cache. This should always be true unless we receive an resolved event twice in a row
@@ -189,24 +193,29 @@ func (d *Controller) CloseProblem(groupKeyHash string) error {
 			log.WithFields(log.Fields{"hash": groupKeyHash, "problem": cachedProblem.ProblemID}).Info("Controller - Found problem, closing it")
 			_, err := d.dtClient.Problem.Close(cachedProblem.ProblemID, comment)
 			if err != nil {
+				d.problemCache.UnLock()
 				return err
 			}
 		} else {
 			// We could not find the ProblemID for this event, maybe it resolved too fast, before the Problem Job could have updated it
 			log.WithFields(log.Fields{"groupKeyHash": groupKeyHash}).Warning("Controller - Found an event on the ProblemCache, but no ProblemID, attempting to update the cache now")
+			d.problemCache.UnLock()
 			d.scheduler.UpdateProblemIDs()
 
 			// Get an updated cache, after the job manual run
 			// Basically, try everything we just tried one more time
+			d.problemCache.Lock()
 			problemCache = d.problemCache.GetCache()
 			if cachedProblem, ok := problemCache.Problems[groupKeyHash]; ok {
 				if cachedProblem.ProblemID != "" {
 					_, err := d.dtClient.Problem.Close(cachedProblem.ProblemID, comment)
 					if err != nil {
+						d.problemCache.UnLock()
 						return err
 					}
 				} else {
 					d.problemCache.Delete(groupKeyHash)
+					d.problemCache.UnLock()
 					return fmt.Errorf("found the event (%s) in the cache, but could not get a ProblemID from Dynatrace even after a manual scan", groupKeyHash)
 				}
 			}
@@ -217,12 +226,14 @@ func (d *Controller) CloseProblem(groupKeyHash string) error {
 		// But it could happen, for instance if this receiver was offline when the alert was created, and we only receive a resolved event
 		// Still attempt to delete the hash, which was not found, who knows...
 		d.problemCache.Delete(groupKeyHash)
+		d.problemCache.UnLock()
 		return fmt.Errorf("could not find an event with hash %s in the ProblemCache, can't close the event", groupKeyHash)
 	}
 
 	// If we get here, the problem has been closed successfully
 	log.WithFields(log.Fields{"hash": groupKeyHash}).Info("Controller - The problem has been closed successfully")
 	d.problemCache.Delete(groupKeyHash)
+	d.problemCache.UnLock()
 	return nil
 
 }

@@ -32,7 +32,7 @@ func NewScheduler(deviceCache *cache.CustomDeviceCacheService, problemCache *cac
 // UpdateProblemIDs checks for alerts without a ProblemID in the cache, and update them with their ProblemIDs
 func (s *Scheduler) UpdateProblemIDs() {
 	log.Info("Scheduler - Starting UpdateProblemIDs")
-
+	s.problemCache.Lock()
 	problemCache := s.problemCache.GetCache()
 
 	// Copy the map so that we can update this during the iteration below
@@ -75,12 +75,14 @@ func (s *Scheduler) UpdateProblemIDs() {
 
 	problemCache.Problems = updatedProblems
 	s.problemCache.Update(*problemCache)
+	s.problemCache.UnLock()
 
 }
 
 func (s *Scheduler) ResendEvents() {
 
 	log.Info("Scheduler - Starting ResendEvents")
+	s.problemCache.Lock()
 	problemCache := s.problemCache.GetCache()
 	for _, problem := range problemCache.Problems {
 		r, _, err := s.dtClient.Events.Create(problem.Event)
@@ -89,6 +91,7 @@ func (s *Scheduler) ResendEvents() {
 		}
 		log.WithFields(log.Fields{"response": fmt.Sprintf("%+v", r)}).Info("Scheduler - Dynatrace response after sending the event")
 	}
+	s.problemCache.UnLock()
 
 }
 
@@ -96,6 +99,7 @@ func (s *Scheduler) DeleteOldEvents() {
 
 	now := time.Now()
 	log.Info("Scheduler - Starting DeleteOldEvents")
+	s.problemCache.Lock()
 	problemCache := s.problemCache.GetCache()
 	for hash, problem := range problemCache.Problems {
 		timeAlive := now.Sub(problem.CreatedAt)
@@ -104,4 +108,5 @@ func (s *Scheduler) DeleteOldEvents() {
 			s.problemCache.Delete(hash)
 		}
 	}
+	s.problemCache.UnLock()
 }

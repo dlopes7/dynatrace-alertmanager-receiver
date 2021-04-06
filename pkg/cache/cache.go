@@ -96,7 +96,6 @@ func NewProblemCacheService() ProblemCacheService {
 
 func (p *ProblemCacheService) GetCache() *ProblemCache {
 	var cache ProblemCache
-	p.lock.Lock()
 	jsonFile, err := os.Open(p.location)
 	if err != nil {
 		log.WithFields(log.Fields{"location": p.location, "error": err.Error()}).Warning("Could not open problems cache file, will create a new one")
@@ -110,13 +109,20 @@ func (p *ProblemCacheService) GetCache() *ProblemCache {
 			cache = p.cache
 		}
 	}
-	p.lock.Unlock()
 	return &cache
 }
 
-func (p *ProblemCacheService) AddProblem(hash string, problem Problem) {
-	cache := p.GetCache()
+func (p *ProblemCacheService) Lock() {
 	p.lock.Lock()
+}
+
+func (p *ProblemCacheService) UnLock() {
+	p.lock.Unlock()
+}
+
+func (p *ProblemCacheService) AddProblem(hash string, problem Problem) {
+	p.lock.Lock()
+	cache := p.GetCache()
 	cache.Problems[hash] = problem
 	cache.LastUpdated = time.Now()
 	p.cache = *cache
@@ -125,13 +131,11 @@ func (p *ProblemCacheService) AddProblem(hash string, problem Problem) {
 }
 
 func (p *ProblemCacheService) Update(pc ProblemCache) {
-	p.lock.Lock()
 	for hash, problem := range pc.Problems {
 		p.cache.Problems[hash] = problem
 	}
 	p.cache.LastUpdated = time.Now()
 	p.persist()
-	p.lock.Unlock()
 }
 
 func (p *ProblemCacheService) persist() {
@@ -142,9 +146,7 @@ func (p *ProblemCacheService) persist() {
 
 func (p *ProblemCacheService) Delete(hash string) {
 	log.WithFields(log.Fields{"hash": hash}).Info("ProblemCacheService - deleting the cache entry")
-	p.lock.Lock()
 	delete(p.cache.Problems, hash)
 	p.cache.LastUpdated = time.Now()
 	p.persist()
-	p.lock.Unlock()
 }

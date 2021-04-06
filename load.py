@@ -1,6 +1,8 @@
 import requests
 import time
 
+from concurrent.futures import ThreadPoolExecutor
+
 service = "-demo-01"
 
 warning = {
@@ -87,13 +89,24 @@ warning_close = {
     "externalURL": "http://8598cebf58a1:9093",
 }
 
+def make_request(url, body):
+    try:
+        print(requests.post(url, json=body))
+    except Exception as e:
+        print(e)
+
 
 def main():
-    print(requests.post("http://localhost:9393/webhook", json=warning))
+    with ThreadPoolExecutor(max_workers=10) as e:
+        for i in range(10):
+            e.submit(make_request, "http://localhost:9394/webhook", warning)
+
     time.sleep(10)
-    print(requests.post("http://localhost:9393/webhook", json=warning_close))
-    # time.sleep(10)
-    # print(requests.post("http://localhost:9393/webhook", json=warning_close))
+    with ThreadPoolExecutor(max_workers=10) as e:
+        for i in range(10):
+            e.submit(make_request, "http://localhost:9394/webhook", warning_close)
+
+    print("Done")
 
 
 if __name__ == "__main__":
