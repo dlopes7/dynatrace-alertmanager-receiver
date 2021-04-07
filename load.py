@@ -3,7 +3,7 @@ import time
 
 from concurrent.futures import ThreadPoolExecutor
 
-service = "-demo-01"
+service = "-demo-04"
 
 warning = {
     "receiver": "dynatrace-receiver",
@@ -18,6 +18,9 @@ warning = {
                 "prometheus": "kubelet",
                 "service": "kubelet" + service,
                 "severity": "warning",
+                # "label_code_app": "label_code_app",
+                "label_env": "label_env",
+                "ocp_cluster": "ocp4-intra-prod",
             },
             "annotations": {"message": "11.11% of the kubelet/kubelet targets in kube-system"},
             "startsAt": "2021-03-19T01:35:45.72Z",
@@ -98,12 +101,12 @@ def make_request(url, body):
 
 def main():
     with ThreadPoolExecutor(max_workers=10) as e:
-        for i in range(10):
+        for i in range(1):
             e.submit(make_request, "http://localhost:9394/webhook", warning)
 
     time.sleep(10)
     with ThreadPoolExecutor(max_workers=10) as e:
-        for i in range(10):
+        for i in range(1):
             e.submit(make_request, "http://localhost:9394/webhook", warning_close)
 
     print("Done")

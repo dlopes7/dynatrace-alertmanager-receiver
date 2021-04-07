@@ -7,6 +7,7 @@ import (
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/jobs"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/utils"
 	dtapi "github.com/dyladan/dynatrace-go-client/api"
+	"github.com/prometheus/alertmanager/template"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"strings"
@@ -60,6 +61,8 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 	log.WithFields(log.Fields{"groupKeyHash": groupKeyHash, "groupKey": data.GroupKey}).Info("Controller - Calculated the hash for the groupKey")
 	eventProperties["GroupKeyHash"] = groupKeyHash
 
+	var tagsToAdd []dtapi.Tag
+
 	// We need to gather properties, and generated a Custom Device ID based on the list of alerts
 	for i, alert := range data.Alerts {
 		alertIdentifier := fmt.Sprintf("Alert %d", i+1)
@@ -104,6 +107,8 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 			propertyKey := fmt.Sprintf("%s - Annotation: %s", alertIdentifier, key)
 			eventProperties[propertyKey] = value
 		}
+
+		tagsToAdd = generateSTIMETags(alert)
 	}
 
 	// Here we need to make sure we have a Custom Device before proceeding
@@ -176,6 +181,15 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 		}
 	}
 
+	if tagsToAdd != nil {
+
+		selector := fmt.Sprintf("entityId(\"%s\")", customDeviceID)
+		log.WithFields(log.Fields{"selector": selector, "tags": tagsToAdd, "groupKeyHash": groupKeyHash}).Info("Attempting to add tags")
+		tagResponse, _, err := d.dtClient.CustomTags.Create(selector, tagsToAdd)
+		log.WithFields(log.Fields{"error": err, "tags": tagResponse, "groupKeyHash": groupKeyHash}).Info("Tags response")
+
+	}
+
 	return nil
 }
 
@@ -190,7 +204,7 @@ func (d *Controller) CloseProblem(groupKeyHash string) error {
 
 		// If we have a problem ID, we can close the problem!
 		if cachedProblem.ProblemID != "" {
-			log.WithFields(log.Fields{"hash": groupKeyHash, "problem": cachedProblem.ProblemID}).Info("Controller - Found problem, closing it")
+			log.WithFields(log.Fields{"groupKeyHash": groupKeyHash, "problem": cachedProblem.ProblemID}).Info("Controller - Found problem, closing it")
 			_, err := d.dtClient.Problem.Close(cachedProblem.ProblemID, comment)
 			if err != nil {
 				d.problemCache.UnLock()
@@ -231,9 +245,77 @@ func (d *Controller) CloseProblem(groupKeyHash string) error {
 	}
 
 	// If we get here, the problem has been closed successfully
-	log.WithFields(log.Fields{"hash": groupKeyHash}).Info("Controller - The problem has been closed successfully")
+	log.WithFields(log.Fields{"groupKeyHash": groupKeyHash}).Info("Controller - The problem has been closed successfully")
 	d.problemCache.Delete(groupKeyHash)
 	d.problemCache.UnLock()
 	return nil
 
+}
+
+func generateSTIMETags(alert template.Alert) []dtapi.Tag {
+
+	var tagsToAdd []dtapi.Tag
+
+	// STIME requirements, add tags based on labels
+	if labelCodeApp, ok := alert.Labels["label_code_app"]; ok {
+		tagsToAdd = append(tagsToAdd, dtapi.Tag{
+			Key:   "CodeAppli",
+			Value: labelCodeApp,
+		})
+
+		if namespace, ok := alert.Labels["namespace"]; ok {
+			tagsToAdd = append(tagsToAdd, dtapi.Tag{
+				Key:   "Appname",
+				Value: namespace,
+			})
+		}
+
+		if labelEnv, ok := alert.Labels["label_env"]; ok {
+			tagsToAdd = append(tagsToAdd, dtapi.Tag{
+				Key:   "Plateforme",
+				Value: labelEnv,
+			})
+		}
+
+		if ocpCluster, ok := alert.Labels["ocp_cluster"]; ok {
+			tagsToAdd = append(tagsToAdd, dtapi.Tag{
+				Key:   "Clustername",
+				Value: ocpCluster,
+			})
+		}
+
+	} else if ocpCluster, ok := alert.Labels["ocp_cluster"]; ok {
+		tagsToAdd = append(tagsToAdd,
+			dtapi.Tag{
+				Key:   "Clustername",
+				Value: ocpCluster,
+			},
+			dtapi.Tag{
+				Key:   "Appname",
+				Value: "k8S",
+			},
+			dtapi.Tag{
+				Key:   "CodeAppli",
+				Value: "i3",
+			},
+		)
+
+		if ocpCluster == "ocp4-intra-prod" {
+			tagsToAdd = append(tagsToAdd,
+				dtapi.Tag{
+					Key:   "Plateforme",
+					Value: "p",
+				},
+			)
+		} else if ocpCluster == "ocp4-intra-dev" {
+			tagsToAdd = append(tagsToAdd,
+				dtapi.Tag{
+					Key:   "Plateforme",
+					Value: "r",
+				},
+			)
+		}
+	}
+
+	return tagsToAdd
 }

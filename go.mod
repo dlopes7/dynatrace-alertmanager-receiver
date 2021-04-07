@@ -12,3 +12,5 @@ require (
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
+
+replace github.com/dyladan/dynatrace-go-client => /home/david/projects/go/dynatrace-go-client
