@@ -3,7 +3,7 @@ import time
 
 from concurrent.futures import ThreadPoolExecutor
 
-service = "-demo-04"
+service = "-demo-05"
 
 warning = {
     "receiver": "dynatrace-receiver",
@@ -100,16 +100,7 @@ def make_request(url, body):
 
 
 def main():
-    with ThreadPoolExecutor(max_workers=10) as e:
-        for i in range(1):
-            e.submit(make_request, "http://localhost:9394/webhook", warning)
-
-    time.sleep(10)
-    with ThreadPoolExecutor(max_workers=10) as e:
-        for i in range(1):
-            e.submit(make_request, "http://localhost:9394/webhook", warning_close)
-
-    print("Done")
+    make_request("http://localhost:9394/webhook", warning)
 
 
 if __name__ == "__main__":

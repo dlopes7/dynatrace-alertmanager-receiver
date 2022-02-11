@@ -182,15 +182,30 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 	}
 
 	if tagsToAdd != nil {
-
-		selector := fmt.Sprintf("entityId(\"%s\")", customDeviceID)
-		log.WithFields(log.Fields{"selector": selector, "tags": tagsToAdd, "groupKeyHash": groupKeyHash}).Info("Attempting to add tags")
-		tagResponse, _, err := d.dtClient.CustomTags.Create(selector, tagsToAdd)
-		log.WithFields(log.Fields{"error": err, "tags": tagResponse, "groupKeyHash": groupKeyHash}).Info("Tags response")
-
+		go d.sendTags(customDeviceID, tagsToAdd)
 	}
 
 	return nil
+}
+
+func (d *Controller) sendTags(customDeviceID string, tags []dtapi.Tag) bool {
+	selector := fmt.Sprintf("entityId(\"%s\")", customDeviceID)
+
+	for i := 0; i < 10; i++ {
+		tagResponse, _, err := d.dtClient.CustomTags.Create(selector, tags)
+		log.WithFields(log.Fields{"selector": selector, "error": err, "tags": tagResponse, "attempt": i + 1}).Debug("Attempted to send tags")
+		if tagResponse != nil {
+			if tagResponse.MatchedEntitiesCount > 0 {
+				log.WithFields(log.Fields{"selector": selector, "tags": tagResponse, "attempt": i + 1}).Info("Successfully applied tags")
+				return true
+			} else {
+				time.Sleep(5 * time.Second)
+			}
+		}
+	}
+
+	return false
+
 }
 
 func (d *Controller) CloseProblem(groupKeyHash string) error {
