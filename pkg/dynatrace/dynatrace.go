@@ -6,7 +6,7 @@ import (
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/cache"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/jobs"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/utils"
-	dtapi "github.com/dyladan/dynatrace-go-client/api"
+	dtapi "github.com/dlopes7/dynatrace-go-client/api"
 	"github.com/prometheus/alertmanager/template"
 	log "github.com/sirupsen/logrus"
 	"os"

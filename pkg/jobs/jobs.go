@@ -3,7 +3,7 @@ package jobs
 import (
 	"fmt"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/cache"
-	dtapi "github.com/dyladan/dynatrace-go-client/api"
+	dtapi "github.com/dlopes7/dynatrace-go-client/api"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"time"

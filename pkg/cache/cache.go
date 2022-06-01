@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/alertmanager"
 	"github.com/dlopes7/dynatrace-alertmanager-receiver/pkg/utils"
-	dynatrace "github.com/dyladan/dynatrace-go-client/api"
+	dynatrace "github.com/dlopes7/dynatrace-go-client/api"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
