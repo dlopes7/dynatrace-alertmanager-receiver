@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-const DefaultCustomDeviceGroupName = "Alertmanager"
 const DefaultCustomDeviceName = "Alertmanager Events"
 
 type Controller struct {
@@ -112,26 +111,26 @@ func (d *Controller) SendAlerts(data alertmanager.Data) error {
 	}
 
 	// Here we need to make sure we have a Custom Device before proceeding
-	_, customDeviceID := utils.GenerateGroupAndCustomDeviceID(DefaultCustomDeviceGroupName, customDeviceName)
+	_, customDeviceID := utils.GenerateGroupAndCustomDeviceID(os.Getenv("DT_GROUP_NAME"), customDeviceName)
 	log.WithFields(log.Fields{"customDeviceID": customDeviceID, "customDeviceName": customDeviceName, "groupKeyHash": groupKeyHash}).Info("Controller - Generated a Custom Device ID locally")
 
 	// This means we need to send an event to Dynatrace
 	if data.Status == "firing" {
 
 		// Before sending an event, make sure the Custom Device exists
-		customDeviceCache := d.customDeviceCache.GetCache()
-		if !utils.StringInSlice(customDeviceID, customDeviceCache.CustomDevices) {
+		customDeviceCache := d.customDeviceCache.GetCache(&d.dtClient)
+		if !utils.StringInSlice(customDeviceID, customDeviceCache.GetIDs()) {
 			// We don't have this Custom Device ID stored. We need to create a new Custom Device
 			cd := dtapi.CustomDevicePushMessage{
 				DisplayName: customDeviceName,
-				Group:       DefaultCustomDeviceGroupName,
+				Group:       os.Getenv("DT_GROUP_NAME"),
 			}
 			r, _, err := d.dtClient.CustomDevice.Create(customDeviceName, cd)
 			if err != nil {
 				// We were not able to create the custom device, abort
 				return err
 			}
-			customDeviceCache.CustomDevices = append(customDeviceCache.CustomDevices, r.EntityID)
+			customDeviceCache.CustomDevices = append(customDeviceCache.CustomDevices, cache.CustomDevice{ID: r.EntityID, Name: customDeviceName, Group: os.Getenv("DT_GROUP_NAME")})
 			d.customDeviceCache.Update(*customDeviceCache)
 			log.WithFields(log.Fields{"CustomDeviceID": r.EntityID, "groupKeyHash": groupKeyHash}).Info("Controller - Created a new Custom Device using the API")
 		} else {

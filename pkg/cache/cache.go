@@ -19,14 +19,34 @@ type CustomDeviceCacheService struct {
 	location string
 }
 
+type CustomDevice struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Group string `json:"group"`
+}
+
 type CustomDeviceCache struct {
+	CustomDevices []CustomDevice `json:"customDevices"`
+	LastUpdated   time.Time      `json:"lastUpdated"`
+}
+
+type CustomDeviceCacheV1 struct {
 	CustomDevices []string  `json:"customDevices"`
 	LastUpdated   time.Time `json:"lastUpdated"`
 }
 
+func (c *CustomDeviceCache) GetIDs() []string {
+	var ids []string
+	for _, cd := range c.CustomDevices {
+		ids = append(ids, cd.ID)
+	}
+	return ids
+
+}
+
 func NewCustomDeviceCacheService() CustomDeviceCacheService {
 	cache := CustomDeviceCache{
-		CustomDevices: []string{},
+		CustomDevices: []CustomDevice{},
 		LastUpdated:   time.Now(),
 	}
 	return CustomDeviceCacheService{
@@ -35,9 +55,43 @@ func NewCustomDeviceCacheService() CustomDeviceCacheService {
 	}
 }
 
-func (c *CustomDeviceCacheService) GetCache() *CustomDeviceCache {
+func (c *CustomDeviceCacheService) updateCacheFromV1(dtClient *dynatrace.Client) (*CustomDeviceCache, error) {
+	// Necessary because I've changed the format of the cache
+	// If we find a cache on the old format, convert it to the new one
+	var cache CustomDeviceCacheV1
+	jsonFile, err := os.Open(c.location)
+	if err != nil {
+		log.WithFields(log.Fields{"location": c.location, "error": err.Error()}).Warning("Could not update the cache")
+		return nil, err
+	}
+	defer jsonFile.Close()
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	err = json.Unmarshal(byteValue, &cache)
+	if err != nil {
+		log.WithFields(log.Fields{"location": c.location, "error": err.Error()}).Warning("Could not update the custom device cache file")
+		return nil, err
+	}
+	// create a CustomDeviceCache with the devices from the current cache
+	var customDevices []CustomDevice
+	for _, id := range cache.CustomDevices {
+		name := id
+		log.WithFields(log.Fields{"id": id}).Info("Attempting to update the custom device name")
+
+		entity, _, err := dtClient.Entities.Get(id)
+		if err == nil {
+			name = entity.DisplayName
+			log.WithFields(log.Fields{"id": id, "name": name}).Info("Setting the custom device name")
+		}
+		customDevices = append(customDevices, CustomDevice{ID: id, Name: name, Group: os.Getenv("DT_GROUP_NAME")})
+	}
+	return &CustomDeviceCache{
+		CustomDevices: customDevices,
+	}, nil
+
+}
+
+func (c *CustomDeviceCacheService) GetCache(dtClient *dynatrace.Client) *CustomDeviceCache {
 	var cache CustomDeviceCache
-	c.lock.Lock()
 	jsonFile, err := os.Open(c.location)
 	if err != nil {
 		log.WithFields(log.Fields{"location": c.location, "error": err.Error()}).Warning("Could not open custom device cache file, will create a new one")
@@ -47,11 +101,17 @@ func (c *CustomDeviceCacheService) GetCache() *CustomDeviceCache {
 		byteValue, _ := ioutil.ReadAll(jsonFile)
 		err = json.Unmarshal(byteValue, &cache)
 		if err != nil {
-			log.WithFields(log.Fields{"location": c.location, "error": err.Error()}).Warning("Could not parse the custom device cache file, resetting the cache")
-			cache = c.cache
+			log.WithFields(log.Fields{"location": c.location, "error": err.Error()}).Warning("Could not parse the custom device cache file, attempting to update")
+			updatedCache, err := c.updateCacheFromV1(dtClient)
+			if err != nil {
+				log.WithFields(log.Fields{"location": c.location, "error": err.Error()}).Warning("Could not update the custom device cache file, resetting the cache")
+				cache = c.cache
+			} else {
+				cache = *updatedCache
+				c.Update(cache)
+			}
 		}
 	}
-	c.lock.Unlock()
 	return &cache
 }
 
